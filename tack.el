@@ -29,6 +29,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'subr-x)
 
 (defgroup tack nil
   "Tack customizations."
@@ -136,7 +137,7 @@
       (if (symbolp x) `((,x)) `(,x))))
 
 (defmacro tack (name &rest opts)
-  "Tack state with NAME and BODY."
+  "Tack state with NAME and OPTS."
   (declare (indent defun))
   (let* ((map (intern (format "%s/map" name)))
          (body (tack--reject '(:on :off :base-map :lighter) opts))
