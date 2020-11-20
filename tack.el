@@ -1,0 +1,192 @@
+;;; tack.el --- Modal keybindings -*- lexical-binding: t -*-
+
+;; Author: Daniel Mendler
+;; Created: 2020
+;; License: GPL-3.0-or-later
+;; Version: 0.1
+;; Package-Requires: ((emacs "26"))
+;; Homepage: https://github.com/minad/tack
+
+;; This file is not part of GNU Emacs.
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; Modal keybindings
+
+;;; Code:
+
+(require 'cl-lib)
+
+(defgroup tack nil
+  "Tack customizations."
+  :group 'bindings
+  :prefix "tack-")
+
+(defcustom tack-bind-key
+  (if (fboundp 'bind-key) 'bind-key (lambda (key cmd map) (define-key map key cmd)))
+  "Function which Tack uses used to define key bindings."
+  :type 'symbol
+  :group 'tack)
+
+(defvar-local tack--lighter nil)
+(defvar-local tack--current nil)
+(defvar tack--map-alist '())
+(push 'tack--map-alist emulation-mode-map-alists)
+
+(defvar tack-base-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map [?\e ?\e ?\e] #'tack-disable)
+    (define-key map [?\C-u] #'tack--universal-argument)
+    (define-key map [?u] #'tack--universal-argument)
+    (define-key map [?-] #'tack--negative-argument)
+    (define-key map [kp-subtract] #'tack--negative-argument)
+    (dotimes (n 10)
+     (define-key map (vector (intern (format "kp-%s" n))) #'tack--digit-argument)
+     (define-key map (vector (+ ?0 n)) #'tack--digit-argument))
+    map)
+  "Keymap used as parent keymap for the Tack maps.")
+
+;; The functions `universal-argument', `digit-argument' and `negative-argument' must be
+;; replicated for Tack, since the Emacs functions push their own transient map.
+;; This means that the tack keys like "u" do not work while the transient map is active.
+(defun tack--universal-argument (arg)
+  "Replacement for `universal-argument', to be used by Tack. Takes prefix ARG."
+  (interactive "P")
+  (prefix-command-preserve-state)
+  (setq prefix-arg (cond
+                    ((consp arg) (list (* 4 (car arg))))
+                    ((eq arg '-) '(-4))
+                    (t '(4)))))
+
+(defun tack--digit-argument (arg)
+  "Replacement for `digit-argument', to be used by Tack. Takes prefix ARG."
+  (interactive "P")
+  (prefix-command-preserve-state)
+  (let* ((char (if (integerp last-command-event)
+		   last-command-event
+		 (get last-command-event 'ascii-character)))
+	 (digit (- (logand char ?\177) ?0)))
+    (setq prefix-arg (cond ((integerp arg)
+                            (+ (* arg 10)
+			       (if (< arg 0) (- digit) digit)))
+                           ((eq arg '-)
+                            (if (zerop digit) '- (- digit)))
+                           (t
+                            digit)))))
+
+(defun tack--negative-argument (arg)
+  "Replacement for `negative-argument', to be used by Tack. Takes prefix ARG."
+  (interactive "P")
+  (prefix-command-preserve-state)
+  (setq prefix-arg (cond ((integerp arg) (- arg))
+                         ((eq arg '-) nil)
+                         (t '-))))
+
+(defun tack--reject (keys map)
+  "Remove all KEYS from property MAP."
+  (let ((res))
+    (while map
+      (if (memq (car map) keys)
+          (setq map (cddr map))
+        (push (car map) res)
+        (setq map (cdr map))))
+    (nreverse res)))
+
+(defun tack--bind-keys (map keys cmd)
+  "Bind a list of KEYS to CMD in the keymap MAP."
+  (mapcar (lambda (k) `(,tack-bind-key ,(vconcat (kbd k)) #',cmd ,map)) (if (listp keys) keys (list keys))))
+
+(defun tack--cmd (name map keys cmd)
+  "Bind KEYS to CMD in tack MAP of tack state NAME."
+  (if (symbolp cmd)
+      `(progn
+         ,@(tack--bind-keys map keys cmd))
+    (let* ((cmd (key-description (kbd cmd)))
+           (sym (intern (format "%s/%s" name cmd))))
+      `(progn
+         (defun ,sym ()
+           (interactive)
+           ,(if (stringp cmd)
+                `(let ((bind (key-binding ,(vconcat (kbd cmd)))))
+                   (if (commandp bind t)
+                       (call-interactively (setq this-command bind))
+                     (setq unread-command-events
+                           (append
+                            ',(mapcar (lambda (x) (cons t x)) (listify-key-sequence (kbd cmd)))
+                            unread-command-events)))))
+           ,cmd)
+         ,@(tack--bind-keys map keys sym)))))
+
+(defun tack--opt-hook (opts name)
+  "Get hook option NAME from OPTS plist."
+  (if-let (x (plist-get opts name))
+      (if (symbolp x) `((,x)) `(,x))))
+
+(defmacro tack (name &rest opts)
+  "Tack state with NAME and BODY."
+  (declare (indent defun))
+  (let* ((map (intern (format "%s/map" name)))
+         (body (tack--reject '(:on :off :base-map :lighter) opts))
+         (opt-on (tack--opt-hook opts :on))
+         (opt-off (tack--opt-hook opts :off))
+         (opt-base-map (or (plist-get opts :base-map) 'tack-base-map))
+         (opt-lighter (or (plist-get opts :lighter) (symbol-name name))))
+    `(progn
+       (with-no-warnings (defvar-local ,name nil))
+       (defvar ,map (make-composed-keymap (make-sparse-keymap) ,opt-base-map))
+       (defun ,name ()
+         (interactive)
+         (if ,name
+             (progn
+               ,@opt-off
+               (setq ,name nil
+                     tack--current nil
+                     tack--lighter nil))
+           (tack-disable)
+           ,@opt-on
+           (setq ,name t
+                 tack--current ',name
+                 tack--lighter ,opt-lighter)))
+       ,@(mapcar (pcase-lambda (`(,keys ,cmd)) (tack--cmd name map keys cmd)) body)
+       (push (cons ',name ,map) tack--map-alist))))
+
+(defun tack-disable ()
+  "Disable tack state."
+  (interactive)
+  (when tack--current (funcall tack--current)))
+
+;;;###autoload
+(define-minor-mode tack-mode
+  "Minor mode which shows the current tack state in the mode-line."
+  :global t
+  (if (not tack-mode)
+      (setq mode-line-misc-info (assq-delete-all 'tack--lighter mode-line-misc-info)
+            tack--lighter nil)
+    (push '(tack--lighter ("[" (:propertize tack--lighter face (:foreground "red")) "] ")) mode-line-misc-info)))
+
+(defun tack-cycle ()
+  "Cycle tack states."
+  (interactive)
+  (if (not tack--current)
+      (when tack--map-alist
+        (funcall (caar tack--map-alist)))
+    (when-let (idx (cl-position-if (lambda (x) (eq (car x) tack--current)) tack--map-alist))
+      (if (= idx (- (length tack--map-alist) 1))
+          (tack-disable)
+        (funcall (car (nth (1+ idx) tack--map-alist)))))))
+
+(provide 'tack)
+;;; tack.el ends here
