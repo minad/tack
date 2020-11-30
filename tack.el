@@ -173,9 +173,9 @@
 (define-minor-mode tack-mode
   "Minor mode which shows the current tack state in the mode-line."
   :global t
-  (if (not tack-mode)
-      (setq mode-line-misc-info (assq-delete-all 'tack--lighter mode-line-misc-info)
-            tack--lighter nil)
+  (setq mode-line-misc-info (assq-delete-all 'tack--lighter mode-line-misc-info)
+        tack--lighter nil)
+  (when tack-mode
     (push '(tack--lighter ("[" (:propertize tack--lighter face (:foreground "red")) "] ")) mode-line-misc-info)))
 
 (defun tack-cycle ()
