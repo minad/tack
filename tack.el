@@ -176,7 +176,7 @@
   (setq mode-line-misc-info (assq-delete-all 'tack--lighter mode-line-misc-info)
         tack--lighter nil)
   (when tack-mode
-    (push '(tack--lighter ("[" (:propertize tack--lighter face (:foreground "red")) "] ")) mode-line-misc-info)))
+    (push '(tack--lighter ("[" (:propertize tack--lighter face (:inherit error :weight normal)) "] ")) mode-line-misc-info)))
 
 (defun tack-cycle ()
   "Cycle tack states."
