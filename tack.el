@@ -39,8 +39,7 @@
 (defcustom tack-bind-key
   (if (fboundp 'bind-key) 'bind-key (lambda (key cmd map) (define-key map key cmd)))
   "Function which Tack uses used to define key bindings."
-  :type 'symbol
-  :group 'tack)
+  :type 'symbol)
 
 (defvar-local tack--lighter nil)
 (defvar-local tack--current nil)
