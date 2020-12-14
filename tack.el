@@ -114,18 +114,18 @@
   (if (symbolp cmd)
       `(progn
          ,@(tack--bind-keys map keys cmd))
-    (let* ((cmd (key-description (kbd cmd)))
-           (sym (intern (format "%s/%s" name cmd))))
+    (let* ((desc (key-description (kbd cmd)))
+           (sym (intern (format "%s/%s" name desc))))
       `(progn
          (defun ,sym ()
            (interactive)
            ,(if (stringp cmd)
-                `(let ((bind (key-binding ,(vconcat (kbd cmd)))))
+                `(let ((bind (key-binding ,(vconcat (kbd desc)))))
                    (if (commandp bind t)
                        (call-interactively (setq this-command bind))
                      (setq unread-command-events
                            (append
-                            ',(mapcar (lambda (x) (cons t x)) (listify-key-sequence (kbd cmd)))
+                            ',(mapcar (lambda (x) (cons t x)) (listify-key-sequence (kbd desc)))
                             unread-command-events)))))
            ,cmd)
          ,@(tack--bind-keys map keys sym)))))
