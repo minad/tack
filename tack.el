@@ -112,8 +112,7 @@
 (defun tack--cmd (name map keys cmd)
   "Bind KEYS to CMD in tack MAP of tack state NAME."
   (if (symbolp cmd)
-      `(progn
-         ,@(tack--bind-keys map keys cmd))
+      (macroexp-progn (tack--bind-keys map keys cmd))
     (let* ((desc (key-description (kbd cmd)))
            (sym (intern (format "%s/%s" name desc))))
       `(progn
