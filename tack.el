@@ -28,7 +28,7 @@
 
 ;;; Code:
 
-(require 'cl-lib)
+(require 'seq)
 (require 'subr-x)
 
 (defgroup tack nil
@@ -182,7 +182,7 @@
   (if (not tack--current)
       (when tack--map-alist
         (funcall (caar tack--map-alist)))
-    (when-let (idx (cl-position-if (lambda (x) (eq (car x) tack--current)) tack--map-alist))
+    (when-let (idx (seq-position (lambda (x) (eq (car x) tack--current)) tack--map-alist))
       (if (= idx (- (length tack--map-alist) 1))
           (tack-disable)
         (funcall (car (nth (1+ idx) tack--map-alist)))))))
