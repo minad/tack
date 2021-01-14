@@ -43,7 +43,7 @@
 
 (defvar-local tack--lighter nil)
 (defvar-local tack--current nil)
-(defvar tack--map-alist '())
+(defvar tack--map-alist nil)
 (push 'tack--map-alist emulation-mode-map-alists)
 
 (defvar tack-base-map
@@ -105,29 +105,33 @@
         (setq map (cdr map))))
     (nreverse res)))
 
-(defun tack--bind-keys (map keys cmd)
-  "Bind a list of KEYS to CMD in the keymap MAP."
-  (mapcar (lambda (k) `(,tack-bind-key ,(vconcat (kbd k)) #',cmd ,map)) (if (listp keys) keys (list keys))))
+(defun tack--bind-keys (map prefix keys cmd)
+  "Bind a list of KEYS with PREFIX to CMD in the keymap MAP."
+  (mapcar (lambda (k) `(,tack-bind-key ,(vconcat prefix (kbd k)) #',cmd ,map)) (if (listp keys) keys (list keys))))
+
+(defun tack--translate ()
+  "Translate tack keybinding."
+  (interactive)
+  (when-let (key (key-binding (vconcat [tack--translate] (this-single-command-keys))))
+    (let ((bind (key-binding key)))
+      (if (commandp bind t)
+          (call-interactively (setq this-command bind))
+        (setq unread-command-events (append key unread-command-events))))))
 
 (defun tack--cmd (name map keys cmd)
   "Bind KEYS to CMD in tack MAP of tack state NAME."
-  (if (symbolp cmd)
-      (macroexp-progn (tack--bind-keys map keys cmd))
-    (let* ((desc (key-description (kbd cmd)))
-           (sym (intern (format "%s/%s" name desc))))
-      `(progn
-         (defun ,sym ()
-           (interactive)
-           ,(if (stringp cmd)
-                `(let ((bind (key-binding ,(vconcat (kbd desc)))))
-                   (if (commandp bind t)
-                       (call-interactively (setq this-command bind))
-                     (setq unread-command-events
-                           (append
-                            ',(mapcar (lambda (x) (cons t x)) (listify-key-sequence (kbd desc)))
-                            unread-command-events)))))
-           ,cmd)
-         ,@(tack--bind-keys map keys sym)))))
+  (macroexp-progn
+   (cond
+    ((symbolp cmd)
+     (tack--bind-keys map nil keys cmd))
+    ((stringp cmd)
+     (append
+      (tack--bind-keys map [tack--translate] keys (kbd cmd))
+      (tack--bind-keys map nil keys 'tack--translate)))
+    (t (let ((sym (intern (format "%s/%s" name cmd))))
+         (cons
+          `(defun ,sym () (interactive) ,cmd)
+          (tack--bind-keys map nil keys sym)))))))
 
 (defun tack--opt-hook (opts name)
   "Get hook option NAME from OPTS plist."
