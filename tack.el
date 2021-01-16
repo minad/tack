@@ -113,10 +113,9 @@
   "Translate tack keybinding."
   (interactive)
   (when-let (key (key-binding (vconcat [tack--translate] (this-single-command-keys))))
-    (let ((bind (key-binding key)))
-      (if (commandp bind t)
-          (call-interactively (setq this-command bind))
-        (setq unread-command-events (append key unread-command-events))))))
+    (setq unread-command-events (append key unread-command-events))
+    (setq prefix-arg current-prefix-arg)
+    (reset-this-command-lengths)))
 
 (defun tack--cmd (name map keys cmd)
   "Bind KEYS to CMD in tack MAP of tack state NAME."
