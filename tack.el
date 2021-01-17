@@ -137,7 +137,7 @@
   (if-let (x (plist-get opts name))
       (if (symbolp x) `((,x)) `(,x))))
 
-(defmacro tack (name &rest opts)
+(defmacro tack-define (name &rest opts)
   "Tack state with NAME and OPTS."
   (declare (indent defun))
   (let* ((map (intern (format "%s/map" name)))
