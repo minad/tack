@@ -114,8 +114,7 @@
   (interactive)
   (when-let (key (key-binding (vconcat [tack--translate] (this-single-command-keys))))
     (setq unread-command-events (append key unread-command-events))
-    (setq prefix-arg current-prefix-arg)
-    (reset-this-command-lengths)))
+    (prefix-command-preserve-state)))
 
 (defun tack--cmd (name map keys cmd)
   "Bind KEYS to CMD in tack MAP of tack state NAME."
