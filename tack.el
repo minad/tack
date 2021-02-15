@@ -160,7 +160,8 @@
            ,@opt-on
            (setq ,name t
                  tack--current ',name
-                 tack--lighter ,opt-lighter)))
+                 tack--lighter ,opt-lighter))
+         (force-mode-line-update t))
        ,@(mapcar (pcase-lambda (`(,keys ,cmd)) (tack--cmd name map keys cmd)) body)
        (push (cons ',name ,map) tack--map-alist))))
 
