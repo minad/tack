@@ -31,13 +31,11 @@
 (require 'seq)
 (require 'subr-x)
 
-(defvar-local tack--lighter nil)
 (defvar tack--map-alist nil)
 (push 'tack--map-alist emulation-mode-map-alists)
 
 (defvar tack-base-map
   (let ((map (make-sparse-keymap)))
-    (define-key map [?\e ?\e ?\e] #'tack-disable)
     (define-key map [?\C-u] #'tack--universal-argument)
     (define-key map [?u] #'tack--universal-argument)
     (define-key map [?-] #'tack--negative-argument)
@@ -130,37 +128,18 @@
 (defmacro tack-define (name &rest opts)
   "Tack state with NAME and OPTS."
   (declare (indent defun))
-  (let* ((map (intern (format "%s/map" name)))
+  (let* ((map (intern (format "%s-map" name)))
          (body (tack--reject '(:on :off :base-map :lighter) opts))
          (opt-on (tack--opt-hook opts :on))
          (opt-off (tack--opt-hook opts :off))
          (opt-base-map (or (plist-get opts :base-map) 'tack-base-map))
          (opt-lighter (or (plist-get opts :lighter) (symbol-name name))))
     `(progn
-       (with-no-warnings (defvar-local ,name nil))
        (defvar ,map (make-composed-keymap (make-sparse-keymap) ,opt-base-map))
-       (defun ,name ()
-         (interactive)
-         (if ,name
-             (progn
-               ,@opt-off
-               (setq ,name nil
-                     tack--lighter nil))
-           ,@opt-on
-           (setq ,name t
-                 tack--lighter ,opt-lighter))
-         (force-mode-line-update t))
+       (define-minor-mode ,name "Tack state" :lighter ,(propertize (concat " " opt-lighter) 'face 'error)
+         (if ,name ,(macroexp-progn opt-on) ,@opt-off))
        ,@(mapcar (pcase-lambda (`(,keys ,cmd)) (tack--cmd name map keys cmd)) body)
        (push (cons ',name ,map) tack--map-alist))))
-
-;;;###autoload
-(define-minor-mode tack-mode
-  "Minor mode which shows the current tack state in the mode-line."
-  :global t
-  (setq mode-line-misc-info (assq-delete-all 'tack--lighter mode-line-misc-info)
-        tack--lighter nil)
-  (when tack-mode
-    (push '(tack--lighter ("[" (:propertize tack--lighter face (:inherit error :weight normal)) "] ")) mode-line-misc-info)))
 
 (provide 'tack)
 ;;; tack.el ends here
