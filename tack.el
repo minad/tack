@@ -4,7 +4,7 @@
 ;; Created: 2020
 ;; License: GPL-3.0-or-later
 ;; Version: 0.1
-;; Package-Requires: ((emacs "26"))
+;; Package-Requires: ((emacs "27.1"))
 ;; Homepage: https://github.com/minad/tack
 
 ;; This file is not part of GNU Emacs.
@@ -30,16 +30,6 @@
 
 (require 'seq)
 (require 'subr-x)
-
-(defgroup tack nil
-  "Tack customizations."
-  :group 'bindings
-  :prefix "tack-")
-
-(defcustom tack-bind-key
-  (if (fboundp 'bind-key) 'bind-key (lambda (key cmd map) (define-key map key cmd)))
-  "Function which Tack uses used to define key bindings."
-  :type 'symbol)
 
 (defvar-local tack--lighter nil)
 (defvar-local tack--current nil)
@@ -105,9 +95,11 @@
         (setq map (cdr map))))
     (nreverse res)))
 
-(defun tack--bind-keys (map prefix keys cmd)
-  "Bind a list of KEYS with PREFIX to CMD in the keymap MAP."
-  (mapcar (lambda (k) `(,tack-bind-key ,(vconcat prefix (kbd k)) #',cmd ,map)) (if (listp keys) keys (list keys))))
+(defun tack--define-keys (map prefix keys cmd &optional desc)
+  "Bind a list of KEYS with PREFIX to (DESC . CMD) in the keymap MAP."
+  (mapcar (lambda (k) `(define-key ,map ,(vconcat prefix (kbd k))
+                         ,(if desc `(cons ,desc #',cmd) `#',cmd)))
+          (if (listp keys) keys (list keys))))
 
 (defun tack--translate ()
   "Translate tack keybinding."
@@ -121,15 +113,15 @@
   (macroexp-progn
    (cond
     ((symbolp cmd)
-     (tack--bind-keys map nil keys cmd))
+     (tack--define-keys map nil keys cmd))
     ((stringp cmd)
      (append
-      (tack--bind-keys map [tack--translate] keys (kbd cmd))
-      (tack--bind-keys map nil keys 'tack--translate)))
+      (tack--define-keys map [tack--translate] keys (kbd cmd))
+      (tack--define-keys map nil keys 'tack--translate (key-description (kbd cmd)))))
     (t (let ((sym (intern (format "%s/%s" name cmd))))
          (cons
           `(defun ,sym () (interactive) ,cmd)
-          (tack--bind-keys map nil keys sym)))))))
+          (tack--define-keys map nil keys sym (format "%S" cmd))))))))
 
 (defun tack--opt-hook (opts name)
   "Get hook option NAME from OPTS plist."
