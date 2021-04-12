@@ -32,7 +32,6 @@
 (require 'subr-x)
 
 (defvar-local tack--lighter nil)
-(defvar-local tack--current nil)
 (defvar tack--map-alist nil)
 (push 'tack--map-alist emulation-mode-map-alists)
 
@@ -146,21 +145,13 @@
              (progn
                ,@opt-off
                (setq ,name nil
-                     tack--current nil
                      tack--lighter nil))
-           (tack-disable)
            ,@opt-on
            (setq ,name t
-                 tack--current ',name
                  tack--lighter ,opt-lighter))
          (force-mode-line-update t))
        ,@(mapcar (pcase-lambda (`(,keys ,cmd)) (tack--cmd name map keys cmd)) body)
        (push (cons ',name ,map) tack--map-alist))))
-
-(defun tack-disable ()
-  "Disable tack state."
-  (interactive)
-  (when tack--current (funcall tack--current)))
 
 ;;;###autoload
 (define-minor-mode tack-mode
@@ -170,17 +161,6 @@
         tack--lighter nil)
   (when tack-mode
     (push '(tack--lighter ("[" (:propertize tack--lighter face (:inherit error :weight normal)) "] ")) mode-line-misc-info)))
-
-(defun tack-cycle ()
-  "Cycle tack states."
-  (interactive)
-  (if (not tack--current)
-      (when tack--map-alist
-        (funcall (caar tack--map-alist)))
-    (when-let (idx (seq-position (lambda (x) (eq (car x) tack--current)) tack--map-alist))
-      (if (= idx (- (length tack--map-alist) 1))
-          (tack-disable)
-        (funcall (car (nth (1+ idx) tack--map-alist)))))))
 
 (provide 'tack)
 ;;; tack.el ends here
