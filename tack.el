@@ -7,8 +7,6 @@
 ;; Package-Requires: ((emacs "27.1"))
 ;; Homepage: https://github.com/minad/tack
 
-;; This file is not part of GNU Emacs.
-
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or
@@ -63,12 +61,12 @@
   (interactive "P")
   (prefix-command-preserve-state)
   (let* ((char (if (integerp last-command-event)
-		   last-command-event
-		 (get last-command-event 'ascii-character)))
-	 (digit (- (logand char ?\177) ?0)))
+                   last-command-event
+                 (get last-command-event 'ascii-character)))
+         (digit (- (logand char ?\177) ?0)))
     (setq prefix-arg (cond ((integerp arg)
                             (+ (* arg 10)
-			       (if (< arg 0) (- digit) digit)))
+                               (if (< arg 0) (- digit) digit)))
                            ((eq arg '-)
                             (if (zerop digit) '- (- digit)))
                            (t
